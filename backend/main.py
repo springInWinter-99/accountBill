@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from config import settings
 from database import engine, Base
-from routers import auth, bills
+from routers import auth, bills, images
 
 # 创建数据库表
 Base.metadata.create_all(bind=engine)
@@ -26,6 +26,7 @@ app.add_middleware(
 # 注册路由
 app.include_router(auth.router)
 app.include_router(bills.router)
+app.include_router(images.router)
 
 @app.get("/")
 def root():
