@@ -71,6 +71,34 @@
 **外键：**
 - `user_id` → `users.id` (CASCADE 删除)
 
+### 3. 账单图片表 (bill_images)
+
+| 字段 | 类型 | 说明 | 约束 |
+|------|------|------|------|
+| id | INT | 图片ID | 主键，自增 |
+| bill_id | INT | 账单ID | 外键，关联 bills.id |
+| user_id | INT | 用户ID | 外键，关联 users.id |
+| filename | VARCHAR(255) | 文件名 | 非空 |
+| file_path | VARCHAR(500) | 文件路径 | 非空 |
+| file_size | INT | 文件大小（字节） | 非空 |
+| mime_type | VARCHAR(100) | MIME类型 | 非空 |
+| source_type | VARCHAR(50) | 来源类型 | 可选（alipay/wechat/manual） |
+| ocr_result | JSON | OCR识别结果 | 可选 |
+| parse_status | VARCHAR(50) | 解析状态 | 默认pending（pending/success/failed） |
+| parse_error | TEXT | 解析错误信息 | 可选 |
+| created_at | DATETIME | 创建时间 | 默认当前时间 |
+| updated_at | DATETIME | 更新时间 | 自动更新 |
+
+**索引：**
+- `idx_bill_id`: 账单ID索引
+- `idx_user_id`: 用户ID索引
+- `idx_source_type`: 来源类型索引
+- `idx_parse_status`: 解析状态索引
+
+**外键：**
+- `bill_id` → `bills.id` (CASCADE 删除)
+- `user_id` → `users.id` (CASCADE 删除)
+
 ## 后端接口清单
 
 ### 认证相关接口 (`/api/auth`)
@@ -173,6 +201,84 @@
   }
   ```
 
+### 图片相关接口 (`/api/images`)
+
+#### 1. 上传单张图片
+- **路径**: `POST /api/images/upload`
+- **描述**: 上传账单图片并自动解析（支持支付宝、微信账单）
+- **认证**: 需要 Bearer Token
+- **请求体**: `FormData`
+  - `file`: 图片文件（支持 jpg, jpeg, png, bmp, gif）
+  - `auto_create_bill`: boolean (可选，默认true) - 是否自动创建账单
+- **响应**: `ImageUploadResponse` (201)
+  ```json
+  {
+    "image": {
+      "id": 1,
+      "filename": "bill.jpg",
+      "file_path": "uploads/1/bill.jpg",
+      "parse_status": "success",
+      "source_type": "alipay",
+      ...
+    },
+    "bill": {
+      "id": 1,
+      "title": "商户名称",
+      "amount": 100.00,
+      "category": "支出",
+      ...
+    },
+    "parsed_data": {
+      "amount": 100.00,
+      "date": "2024-01-01",
+      "merchant": "商户名称",
+      "category": "支出",
+      "type": "餐饮"
+    }
+  }
+  ```
+
+#### 2. 批量上传图片
+- **路径**: `POST /api/images/upload/batch`
+- **描述**: 批量上传多张图片（最多20张）
+- **认证**: 需要 Bearer Token
+- **请求体**: `FormData`
+  - `files`: 图片文件数组
+  - `auto_create_bill`: boolean (可选，默认true)
+- **响应**: `BatchImageUploadResponse` (201)
+
+#### 3. 获取图片信息
+- **路径**: `GET /api/images/{image_id}`
+- **描述**: 获取指定图片的详细信息
+- **认证**: 需要 Bearer Token
+- **响应**: `BillImageResponse`
+
+#### 4. 获取图片文件
+- **路径**: `GET /api/images/{image_id}/file`
+- **描述**: 获取图片文件（用于显示）
+- **认证**: 需要 Bearer Token
+- **响应**: 图片文件流
+
+#### 5. 获取账单的所有图片
+- **路径**: `GET /api/images/bill/{bill_id}/images`
+- **描述**: 获取指定账单关联的所有图片
+- **认证**: 需要 Bearer Token
+- **响应**: `BillImageResponse[]`
+
+#### 6. 删除图片
+- **路径**: `DELETE /api/images/{image_id}`
+- **描述**: 删除指定图片
+- **认证**: 需要 Bearer Token
+- **响应**: 204 No Content
+
+#### 7. 重新解析图片
+- **路径**: `POST /api/images/{image_id}/reparse`
+- **描述**: 重新解析图片（如果首次解析失败）
+- **认证**: 需要 Bearer Token
+- **查询参数**:
+  - `auto_create_bill`: boolean (可选，默认false)
+- **响应**: `ImageUploadResponse`
+
 ## 前端核心组件
 
 ### 1. 认证相关组件
@@ -240,6 +346,30 @@
   - `deleteBill()` - 删除账单
   - `getStatistics()` - 获取统计信息
 
+#### images.js - 图片 API
+- **位置**: `src/api/images.js`
+- **接口**:
+  - `uploadImage()` - 上传单张图片
+  - `uploadImages()` - 批量上传图片
+  - `getImage()` - 获取图片信息
+  - `getImageFile()` - 获取图片文件
+  - `getBillImages()` - 获取账单的所有图片
+  - `deleteImage()` - 删除图片
+  - `reparseImage()` - 重新解析图片
+
+### 5. 图片上传组件
+
+#### ImageUpload.vue - 图片上传组件
+- **功能**: 上传账单图片并自动解析
+- **位置**: `src/components/ImageUpload.vue`
+- **特性**:
+  - 支持拖拽上传
+  - 支持多张图片批量上传（最多20张）
+  - 自动OCR识别支付宝、微信账单
+  - 自动创建账单（可选）
+  - 显示上传结果和解析信息
+  - 支持图片预览
+
 ## 环境配置
 
 ### 后端配置
@@ -289,6 +419,9 @@
 - **PyMySQL**: MySQL 数据库驱动
 - **JWT**: 用户认证
 - **Pydantic**: 数据验证
+- **PaddleOCR**: OCR文字识别（支持中文）
+- **OpenCV**: 图像处理
+- **Pillow**: 图像处理库
 
 ### 前端
 - **Vue 3**: 渐进式 JavaScript 框架
@@ -307,8 +440,33 @@
 - ✅ 账单类型管理
 - ✅ 日期筛选
 - ✅ 统计信息展示
+- ✅ **图片上传功能**（支持多张图片）
+- ✅ **OCR自动识别**（支付宝、微信账单）
+- ✅ **自动创建账单**（从图片解析）
 - ✅ 响应式设计
 - ✅ 前后端分离架构
+
+## OCR识别功能
+
+系统支持自动识别支付宝和微信账单图片，提取以下信息：
+- **金额**: 自动识别账单金额
+- **日期**: 识别交易日期
+- **商户名称**: 提取收款方/商户信息
+- **分类**: 自动判断收入/支出
+- **类型**: 智能识别账单类型（餐饮、交通、购物等）
+
+### 支持的图片格式
+- JPG/JPEG
+- PNG
+- BMP
+- GIF
+
+### 使用说明
+1. 点击"上传图片"按钮
+2. 选择或拖拽账单图片（支持多选）
+3. 系统自动进行OCR识别
+4. 识别成功后自动创建账单
+5. 可在上传结果中查看识别详情
 
 ## 注意事项
 

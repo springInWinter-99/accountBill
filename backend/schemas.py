@@ -61,3 +61,37 @@ class BillStatistics(BaseModel):
     total_expense: Decimal
     balance: Decimal
     count: int
+
+# 图片相关Schema
+class BillImageBase(BaseModel):
+    filename: str
+    file_path: str
+    file_size: int
+    mime_type: str
+    source_type: Optional[str] = None
+
+class BillImageCreate(BillImageBase):
+    bill_id: int
+
+class BillImageResponse(BillImageBase):
+    id: int
+    bill_id: int
+    user_id: int
+    ocr_result: Optional[dict] = None
+    parse_status: str
+    parse_error: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+class ImageUploadResponse(BaseModel):
+    image: Optional[BillImageResponse] = None
+    bill: Optional[BillResponse] = None
+    parsed_data: Optional[dict] = None
+
+class BatchImageUploadResponse(BaseModel):
+    success_count: int
+    failed_count: int
+    results: list[ImageUploadResponse]

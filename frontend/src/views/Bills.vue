@@ -71,6 +71,7 @@
           <el-button type="primary" @click="loadBills">查询</el-button>
           <el-button @click="resetFilter">重置</el-button>
           <el-button type="success" @click="handleAdd">新增账单</el-button>
+          <el-button type="warning" @click="handleUploadImages">上传图片</el-button>
         </el-form-item>
       </el-form>
     </el-card>
@@ -106,6 +107,16 @@
         </el-table-column>
       </el-table>
     </el-card>
+
+    <!-- 图片上传对话框 -->
+    <el-dialog
+      v-model="imageUploadVisible"
+      title="上传账单图片"
+      width="800px"
+      @close="handleImageUploadClose"
+    >
+      <ImageUpload @upload-success="handleImageUploadSuccess" />
+    </el-dialog>
 
     <!-- 新增/编辑对话框 -->
     <el-dialog
@@ -177,6 +188,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { billsApi } from '../api/bills'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import ImageUpload from '../components/ImageUpload.vue'
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -198,6 +210,7 @@ const dialogVisible = ref(false)
 const dialogTitle = ref('新增账单')
 const billFormRef = ref(null)
 const currentBillId = ref(null)
+const imageUploadVisible = ref(false)
 
 const billForm = reactive({
   title: '',
@@ -322,6 +335,19 @@ const resetForm = () => {
   if (billFormRef.value) {
     billFormRef.value.clearValidate()
   }
+}
+
+const handleUploadImages = () => {
+  imageUploadVisible.value = true
+}
+
+const handleImageUploadClose = () => {
+  imageUploadVisible.value = false
+}
+
+const handleImageUploadSuccess = () => {
+  // 上传成功后刷新账单列表
+  loadBills()
 }
 
 onMounted(() => {

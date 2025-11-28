@@ -322,6 +322,267 @@ GET /api/bills/statistics/summary?start_date=2024-01-01&end_date=2024-01-31
 
 ---
 
+## 图片接口
+
+### 1. 上传单张图片
+
+**POST** `/api/images/upload`
+
+上传账单图片并自动进行OCR识别（支持支付宝、微信账单）。
+
+**请求头**:
+```
+Authorization: Bearer {access_token}
+```
+
+**请求体** (FormData):
+- `file`: 图片文件（支持 jpg, jpeg, png, bmp, gif，最大 10MB）
+- `auto_create_bill`: boolean (可选，默认true) - 是否自动创建账单
+
+**响应** (201 Created):
+```json
+{
+  "image": {
+    "id": 1,
+    "bill_id": 1,
+    "user_id": 1,
+    "filename": "bill_20240115_120000.jpg",
+    "file_path": "uploads/1/bill_20240115_120000.jpg",
+    "file_size": 245678,
+    "mime_type": "image/jpeg",
+    "source_type": "alipay",
+    "ocr_result": {
+      "success": true,
+      "bill_type": "alipay",
+      "parsed_data": {
+        "amount": 50.00,
+        "date": "2024-01-15",
+        "merchant": "餐厅名称",
+        "category": "支出",
+        "type": "餐饮"
+      }
+    },
+    "parse_status": "success",
+    "parse_error": null,
+    "created_at": "2024-01-15T12:00:00",
+    "updated_at": "2024-01-15T12:00:00"
+  },
+  "bill": {
+    "id": 1,
+    "user_id": 1,
+    "title": "餐厅名称",
+    "amount": 50.00,
+    "category": "支出",
+    "type": "餐饮",
+    "description": "餐厅名称",
+    "bill_date": "2024-01-15",
+    "created_at": "2024-01-15T12:00:00",
+    "updated_at": "2024-01-15T12:00:00"
+  },
+  "parsed_data": {
+    "amount": 50.00,
+    "date": "2024-01-15",
+    "merchant": "餐厅名称",
+    "category": "支出",
+    "type": "餐饮"
+  }
+}
+```
+
+**错误响应**:
+- `400`: 文件格式不支持或文件过大
+- `500`: OCR识别失败
+
+---
+
+### 2. 批量上传图片
+
+**POST** `/api/images/upload/batch`
+
+批量上传多张图片（最多20张）。
+
+**请求头**:
+```
+Authorization: Bearer {access_token}
+```
+
+**请求体** (FormData):
+- `files`: 图片文件数组（每个文件最大 10MB）
+- `auto_create_bill`: boolean (可选，默认true)
+
+**响应** (201 Created):
+```json
+{
+  "success_count": 2,
+  "failed_count": 1,
+  "results": [
+    {
+      "image": { ... },
+      "bill": { ... },
+      "parsed_data": { ... }
+    },
+    {
+      "image": { ... },
+      "bill": { ... },
+      "parsed_data": { ... }
+    },
+    {
+      "image": null,
+      "bill": null,
+      "parsed_data": null
+    }
+  ]
+}
+```
+
+**错误响应**:
+- `400`: 文件数量超过限制（最多20张）
+
+---
+
+### 3. 获取图片信息
+
+**GET** `/api/images/{image_id}`
+
+获取指定图片的详细信息。
+
+**请求头**:
+```
+Authorization: Bearer {access_token}
+```
+
+**路径参数**:
+- `image_id` (int): 图片ID
+
+**响应** (200 OK):
+```json
+{
+  "id": 1,
+  "bill_id": 1,
+  "user_id": 1,
+  "filename": "bill_20240115_120000.jpg",
+  "file_path": "uploads/1/bill_20240115_120000.jpg",
+  "file_size": 245678,
+  "mime_type": "image/jpeg",
+  "source_type": "alipay",
+  "ocr_result": { ... },
+  "parse_status": "success",
+  "parse_error": null,
+  "created_at": "2024-01-15T12:00:00",
+  "updated_at": "2024-01-15T12:00:00"
+}
+```
+
+**错误响应**:
+- `404`: 图片不存在或不属于当前用户
+
+---
+
+### 4. 获取图片文件
+
+**GET** `/api/images/{image_id}/file`
+
+获取图片文件（用于显示）。
+
+**请求头**:
+```
+Authorization: Bearer {access_token}
+```
+
+**路径参数**:
+- `image_id` (int): 图片ID
+
+**响应** (200 OK): 图片文件流
+
+**错误响应**:
+- `404`: 图片不存在或文件不存在
+
+---
+
+### 5. 获取账单的所有图片
+
+**GET** `/api/images/bill/{bill_id}/images`
+
+获取指定账单关联的所有图片。
+
+**请求头**:
+```
+Authorization: Bearer {access_token}
+```
+
+**路径参数**:
+- `bill_id` (int): 账单ID
+
+**响应** (200 OK):
+```json
+[
+  {
+    "id": 1,
+    "bill_id": 1,
+    "user_id": 1,
+    "filename": "bill_20240115_120000.jpg",
+    ...
+  },
+  {
+    "id": 2,
+    "bill_id": 1,
+    "user_id": 1,
+    "filename": "bill_20240115_120001.jpg",
+    ...
+  }
+]
+```
+
+**错误响应**:
+- `404`: 账单不存在或不属于当前用户
+
+---
+
+### 6. 删除图片
+
+**DELETE** `/api/images/{image_id}`
+
+删除指定的图片。
+
+**请求头**:
+```
+Authorization: Bearer {access_token}
+```
+
+**路径参数**:
+- `image_id` (int): 图片ID
+
+**响应** (204 No Content): 无响应体
+
+**错误响应**:
+- `404`: 图片不存在或不属于当前用户
+
+---
+
+### 7. 重新解析图片
+
+**POST** `/api/images/{image_id}/reparse`
+
+重新解析图片（如果首次解析失败）。
+
+**请求头**:
+```
+Authorization: Bearer {access_token}
+```
+
+**路径参数**:
+- `image_id` (int): 图片ID
+
+**查询参数**:
+- `auto_create_bill`: boolean (可选，默认false) - 是否自动创建账单
+
+**响应** (200 OK): 同上传图片接口
+
+**错误响应**:
+- `404`: 图片不存在或文件不存在
+
+---
+
 ## 数据模型
 
 ### User (用户)
@@ -357,6 +618,40 @@ GET /api/bills/statistics/summary?start_date=2024-01-01&end_date=2024-01-31
   "total_expense": "decimal(10,2)",
   "balance": "decimal(10,2)",
   "count": "integer"
+}
+```
+
+### BillImage (账单图片)
+```json
+{
+  "id": "integer",
+  "bill_id": "integer",
+  "user_id": "integer",
+  "filename": "string",
+  "file_path": "string",
+  "file_size": "integer",
+  "mime_type": "string",
+  "source_type": "string (alipay|wechat|manual)",
+  "ocr_result": "object (JSON)",
+  "parse_status": "string (pending|success|failed)",
+  "parse_error": "string (可选)",
+  "created_at": "datetime",
+  "updated_at": "datetime"
+}
+```
+
+### ImageUploadResponse (图片上传响应)
+```json
+{
+  "image": "BillImage (可选)",
+  "bill": "Bill (可选)",
+  "parsed_data": {
+    "amount": "decimal(10,2)",
+    "date": "string (YYYY-MM-DD)",
+    "merchant": "string",
+    "category": "string (收入|支出)",
+    "type": "string"
+  }
 }
 ```
 
